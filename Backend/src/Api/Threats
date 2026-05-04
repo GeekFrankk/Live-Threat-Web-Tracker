@@ -1,0 +1,514 @@
+const axios = require("axios");
+const fs    = require("fs");
+const path  = require("path");
+
+const CACHE_FILE     = path.join(__dirname, "../../cache.json");
+const CACHE_DURATION = 15 * 60 * 1000;
+
+const US_CITIES = [
+  { city: "New York",         state: "NY", lat: 40.713,  lng: -74.006  },
+  { city: "Los Angeles",      state: "CA", lat: 34.052,  lng: -118.244 },
+  { city: "Chicago",          state: "IL", lat: 41.878,  lng: -87.630  },
+  { city: "Houston",          state: "TX", lat: 29.760,  lng: -95.370  },
+  { city: "Phoenix",          state: "AZ", lat: 33.448,  lng: -112.074 },
+  { city: "Philadelphia",     state: "PA", lat: 39.953,  lng: -75.165  },
+  { city: "San Antonio",      state: "TX", lat: 29.424,  lng: -98.494  },
+  { city: "San Diego",        state: "CA", lat: 32.716,  lng: -117.161 },
+  { city: "Dallas",           state: "TX", lat: 32.777,  lng: -96.797  },
+  { city: "San Jose",         state: "CA", lat: 37.338,  lng: -121.886 },
+  { city: "Atlanta",          state: "GA", lat: 33.749,  lng: -84.388  },
+  { city: "Austin",           state: "TX", lat: 30.267,  lng: -97.743  },
+  { city: "Seattle",          state: "WA", lat: 47.606,  lng: -122.332 },
+  { city: "Denver",           state: "CO", lat: 39.739,  lng: -104.990 },
+  { city: "Washington DC",    state: "DC", lat: 38.907,  lng: -77.037  },
+  { city: "Nashville",        state: "TN", lat: 36.163,  lng: -86.782  },
+  { city: "Miami",            state: "FL", lat: 25.762,  lng: -80.192  },
+  { city: "Boston",           state: "MA", lat: 42.360,  lng: -71.059  },
+  { city: "Las Vegas",        state: "NV", lat: 36.170,  lng: -115.140 },
+  { city: "Minneapolis",      state: "MN", lat: 44.978,  lng: -93.265  },
+  { city: "Portland",         state: "OR", lat: 45.505,  lng: -122.676 },
+  { city: "Charlotte",        state: "NC", lat: 35.227,  lng: -80.843  },
+  { city: "Detroit",          state: "MI", lat: 42.331,  lng: -83.045  },
+  { city: "Louisville",       state: "KY", lat: 38.252,  lng: -85.758  },
+  { city: "Baltimore",        state: "MD", lat: 39.290,  lng: -76.612  },
+  { city: "Milwaukee",        state: "WI", lat: 43.038,  lng: -87.906  },
+  { city: "Albuquerque",      state: "NM", lat: 35.084,  lng: -106.651 },
+  { city: "Tucson",           state: "AZ", lat: 32.221,  lng: -110.969 },
+  { city: "Fresno",           state: "CA", lat: 36.737,  lng: -119.787 },
+  { city: "Sacramento",       state: "CA", lat: 38.581,  lng: -121.494 },
+  { city: "Kansas City",      state: "MO", lat: 39.100,  lng: -94.578  },
+  { city: "Mesa",             state: "AZ", lat: 33.415,  lng: -111.831 },
+  { city: "Omaha",            state: "NE", lat: 41.257,  lng: -95.995  },
+  { city: "Colorado Springs", state: "CO", lat: 38.833,  lng: -104.821 },
+  { city: "Raleigh",          state: "NC", lat: 35.779,  lng: -78.638  },
+  { city: "Virginia Beach",   state: "VA", lat: 36.852,  lng: -75.977  },
+  { city: "Long Beach",       state: "CA", lat: 33.769,  lng: -118.191 },
+  { city: "New Orleans",      state: "LA", lat: 29.951,  lng: -90.071  },
+  { city: "Salt Lake City",   state: "UT", lat: 40.760,  lng: -111.891 },
+  { city: "Hartford",         state: "CT", lat: 41.763,  lng: -72.685  },
+  { city: "Providence",       state: "RI", lat: 41.823,  lng: -71.412  },
+  { city: "Jacksonville",     state: "FL", lat: 30.332,  lng: -81.655  },
+  { city: "Columbus",         state: "OH", lat: 39.961,  lng: -82.998  },
+  { city: "Indianapolis",     state: "IN", lat: 39.768,  lng: -86.158  },
+  { city: "Memphis",          state: "TN", lat: 35.149,  lng: -90.048  },
+  { city: "Oklahoma City",    state: "OK", lat: 35.467,  lng: -97.516  },
+  { city: "Anchorage",        state: "AK", lat: 61.218,  lng: -149.900 },
+  { city: "Honolulu",         state: "HI", lat: 21.306,  lng: -157.858 },
+  { city: "Sioux Falls",      state: "SD", lat: 43.549,  lng: -96.700  },
+  { city: "Burlington",       state: "VT", lat: 44.475,  lng: -73.212  },
+  { city: "Billings",         state: "MT", lat: 45.783,  lng: -108.501 },
+  { city: "Boise",            state: "ID", lat: 43.615,  lng: -116.202 },
+  { city: "Cheyenne",         state: "WY", lat: 41.139,  lng: -104.820 },
+  { city: "Fargo",            state: "ND", lat: 46.877,  lng: -96.789  },
+  { city: "Bismarck",         state: "ND", lat: 46.808,  lng: -100.783 },
+  { city: "Charleston",       state: "WV", lat: 38.349,  lng: -81.633  },
+  { city: "Columbia",         state: "SC", lat: 34.000,  lng: -81.035  },
+  { city: "Little Rock",      state: "AR", lat: 34.746,  lng: -92.289  },
+  { city: "Jackson",          state: "MS", lat: 32.298,  lng: -90.184  },
+  { city: "Birmingham",       state: "AL", lat: 33.520,  lng: -86.802  },
+  { city: "Concord",          state: "NH", lat: 43.206,  lng: -71.537  },
+  { city: "Augusta",          state: "ME", lat: 44.310,  lng: -69.779  },
+  { city: "Dover",            state: "DE", lat: 39.158,  lng: -75.524  },
+];
+
+// AbuseIPDB category → attack type
+const CATEGORY_MAP = {
+  3:  "Malware",
+  4:  "DDoS",
+  5:  "Brute Force",
+  6:  "DDoS",
+  7:  "Phishing",
+  9:  "Malware",
+  10: "Malware",
+  11: "Phishing",
+  14: "Brute Force",
+  15: "Malware",
+  16: "SQL Injection",
+  17: "Malware",
+  18: "Brute Force",
+  19: "Malware",
+  20: "Malware",
+  21: "SQL Injection",
+  22: "Brute Force",
+  23: "Malware",
+};
+
+const SECTOR_KEYWORDS = {
+  Healthcare:     ["hospital","health","medical","clinic","pharma","care","hca","kaiser","mayo","cvs","walgreen","aetna","humana","united health"],
+  Finance:        ["bank","financial","capital","credit","invest","insurance","fidelity","wells","chase","citi","goldman","jpmorgan","nasdaq","nyse"],
+  Government:     ["gov","federal","state","county","city","municipal","department","dod","army","navy","airforce","pentagon","irs","fbi","cia","nsa"],
+  Education:      ["university","college","school","edu","institute","academy","learning","student","mit","stanford","harvard"],
+  Energy:         ["energy","electric","power","utility","grid","gas","oil","petroleum","solar","nuclear","exxon","chevron","bp","shell"],
+  Defense:        ["defense","military","lockheed","raytheon","boeing","northrop","general dynamics","armed","leidos","saic"],
+  Infrastructure: ["telecom","network","internet","isp","broadband","fiber","att","verizon","comcast","sprint","t-mobile","lumen","centurylink"],
+  Retail:         ["retail","store","shop","commerce","amazon","walmart","target","ecommerce","logistics","shipping","fedex","ups"],
+};
+
+const FALLBACK_SECTORS = ["Healthcare","Finance","Government","Education","Energy","Retail","Defense","Infrastructure"];
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+function inferSector(org = "", company = "", asnName = "") {
+  const combined = `${org} ${company} ${asnName}`.toLowerCase();
+  for (const [sector, keywords] of Object.entries(SECTOR_KEYWORDS)) {
+    if (keywords.some(k => combined.includes(k))) return sector;
+  }
+  return null;
+}
+
+function resolveAttackType(categories = []) {
+  for (const cat of categories) {
+    if (CATEGORY_MAP[cat]) return CATEGORY_MAP[cat];
+  }
+  return "Malware";
+}
+
+function loadFromDisk() {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+      console.log(`Loaded ${parsed.data.length} threats from cache`);
+      return parsed;
+    }
+  } catch (err) {
+    console.log("Cache read failed:", err.message);
+  }
+  return null;
+}
+
+function saveToDisk(data) {
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify({ savedAt: Date.now(), data }, null, 2));
+    console.log(`Saved ${data.length} threats to cache`);
+  } catch (err) {
+    console.log("Cache write failed:", err.message);
+  }
+}
+
+async function fetchAbuseIPDB() {
+  try {
+    const res = await axios.get("https://api.abuseipdb.com/api/v2/blacklist", {
+      headers: {
+        Key: process.env.ABUSEIPDB_API_KEY,
+        Accept: "application/json",
+      },
+      params: {
+        confidenceMinimum: 75,
+        limit: 500,
+        verbose: true,
+      },
+      timeout: 10000,
+    });
+
+    const entries = res.data.data || [];
+    console.log(`AbuseIPDB returned ${entries.length} IPs`);
+
+    return entries
+      .filter(e => e.countryCode === "US")
+      .map(e => ({
+        ip:         e.ipAddress,
+        categories: e.categories || [],
+        confidence: e.abuseConfidenceScore,
+        usageType:  e.usageType || "",
+        source:     "AbuseIPDB",
+      }));
+  } catch (err) {
+    console.log("AbuseIPDB failed:", err.message);
+    return [];
+  }
+}
+
+// Ransomwatch — real victim org + sector from ransomware leak sites
+async function fetchRansomwatch() {
+  try {
+    const res = await axios.get("https://ransomwatch.telemetry.ltd/records.json", {
+      timeout: 8000,
+    });
+
+    const entries = res.data || [];
+    console.log(`Ransomwatch returned ${entries.length} victims`);
+
+    return entries
+      .filter(e => e.country === "US")
+      .slice(0, 200)
+      .map(e => ({
+        org:       e.victim  || "",
+        sector:    mapRansomSector(e.victim || ""),
+        city:      null,
+        attackType: "Ransomware",
+        group:     e.group   || "Unknown",
+        ts:        e.discovered || new Date().toISOString(),
+        source:    "Ransomwatch",
+        isVictim:  true,
+      }));
+  } catch (err) {
+    console.log("Ransomwatch failed:", err.message);
+    return [];
+  }
+}
+
+// CISA KEV — known exploited vulnerabilities with sector context
+async function fetchCISA() {
+  try {
+    const res = await axios.get(
+      "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      { timeout: 8000 }
+    );
+
+    const vulns = res.data.vulnerabilities || [];
+    console.log(`CISA KEV returned ${vulns.length} vulnerabilities`);
+
+    return vulns.slice(0, 100).map(v => ({
+      cveID:       v.cveID,
+      product:     v.product       || "",
+      vendor:      v.vendorProject || "",
+      sector:      mapCVESector(v.vendorProject || "", v.product || ""),
+      attackType:  mapCVEAttackType(v.shortDescription || ""),
+      source:      "CISA KEV",
+      ts:          v.dateAdded,
+      isVictim:    true,
+    }));
+  } catch (err) {
+    console.log("CISA KEV failed:", err.message);
+    return [];
+  }
+}
+
+function mapRansomSector(victimName = "") {
+  const lower = victimName.toLowerCase();
+  for (const [sector, keywords] of Object.entries(SECTOR_KEYWORDS)) {
+    if (keywords.some(k => lower.includes(k))) return sector;
+  }
+  return null;
+}
+
+function mapCVESector(vendor = "", product = "") {
+  const combined = `${vendor} ${product}`.toLowerCase();
+  if (combined.includes("cisco") || combined.includes("juniper") || combined.includes("fortinet")) return "Infrastructure";
+  if (combined.includes("microsoft") || combined.includes("exchange") || combined.includes("windows")) return "Infrastructure";
+  if (combined.includes("vmware") || combined.includes("citrix")) return "Infrastructure";
+  if (combined.includes("apache") || combined.includes("nginx")) return "Infrastructure";
+  if (combined.includes("oracle") || combined.includes("sap")) return "Finance";
+  if (combined.includes("ivanti") || combined.includes("pulse")) return "Government";
+  for (const [sector, keywords] of Object.entries(SECTOR_KEYWORDS)) {
+    if (keywords.some(k => combined.includes(k))) return sector;
+  }
+  return null;
+}
+
+function mapCVEAttackType(description = "") {
+  const lower = description.toLowerCase();
+  if (lower.includes("sql"))                          return "SQL Injection";
+  if (lower.includes("phish"))                        return "Phishing";
+  if (lower.includes("brute") || lower.includes("credential")) return "Brute Force";
+  if (lower.includes("denial") || lower.includes("ddos"))      return "DDoS";
+  if (lower.includes("ransom"))                       return "Ransomware";
+  return "Malware";
+}
+
+async function geoResolve(rawList) {
+  if (!rawList.length) return [];
+  const results = [];
+  const IPINFO_TOKEN = process.env.IPINFO_TOKEN || "";
+
+  for (const raw of rawList) {
+    try {
+      const res = await axios.get(
+        `https://ipinfo.io/${raw.ip}/json${IPINFO_TOKEN ? `?token=${IPINFO_TOKEN}` : ""}`,
+        { timeout: 6000 }
+      );
+      const d = res.data;
+      if (d.country !== "US" || !d.loc) continue;
+
+      const [lat, lon] = d.loc.split(",").map(Number);
+
+      results.push({
+        geo: {
+          lat,
+          lon,
+          city:    d.city            || "",
+          org:     d.org             || "",
+          company: d.company?.name   || "",
+          asnName: d.asn?.name       || "",
+        },
+        raw,
+      });
+    } catch (err) {
+      console.log(`ipinfo failed for ${raw.ip}:`, err.message);
+    }
+  }
+
+  console.log(`geoResolve: ${results.length} US hits from ${rawList.length} IPs`);
+  return results;
+}
+
+function snapToCity(lat, lng) {
+  return US_CITIES.reduce((best, c) => {
+    const d = Math.hypot(c.lat - lat, c.lng - lng);
+    return d < Math.hypot(best.lat - lat, best.lng - lng) ? c : best;
+  }, US_CITIES[0]);
+}
+
+async function getThreats() {
+  const cache = loadFromDisk();
+  if (cache && Date.now() - cache.savedAt < CACHE_DURATION) return cache.data;
+
+  console.log("Fetching fresh threat data...");
+
+  // Run all sources in parallel
+  const [abuseRaw, ransomVictims, cisaVulns] = await Promise.all([
+    fetchAbuseIPDB(),
+    fetchRansomwatch(),
+    fetchCISA(),
+  ]);
+
+  console.log(`Sources: AbuseIPDB=${abuseRaw.length} Ransomwatch=${ransomVictims.length} CISA=${cisaVulns.length}`);
+
+  // Geo-resolve AbuseIPDB IPs
+  const usResolved = await geoResolve(abuseRaw);
+
+  const seen    = new Set();
+  const threats = [];
+
+  // ── AbuseIPDB threats (attacker infrastructure, no real sector) ──
+  usResolved.forEach(({ geo, raw }) => {
+    const city       = snapToCity(geo.lat, geo.lon);
+    const attackType = resolveAttackType(raw.categories);
+    const score      = raw.confidence || 75;
+    const key        = `${city.city}-${attackType}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    threats.push({
+      ip:          raw.ip,
+      org:         geo.org,
+      company:     geo.company,
+      city:        city.city,
+      state:       city.state,
+      country:     "United States",
+      lat:         city.lat,
+      lng:         city.lng,
+      attackType,
+      categories:  raw.categories,
+      sector:      null,         // unknown — attacker infra, not victim
+      sectorIsReal: false,
+      severity:    score >= 90 ? "CRITICAL" : score >= 80 ? "HIGH" : score >= 70 ? "MEDIUM" : "LOW",
+      source:      raw.source,
+      ts:          new Date().toISOString(),
+    });
+  });
+
+  // ── Ransomwatch victims (real sector, real org name) ──
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  ransomVictims.forEach(v => {
+    const city = pick(US_CITIES);
+    const key  = `ransomwatch-${v.org}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    threats.push({
+      ip:          null,
+      org:         v.org,
+      company:     v.org,
+      city:        city.city,
+      state:       city.state,
+      country:     "United States",
+      lat:         city.lat,
+      lng:         city.lng,
+      attackType:  "Ransomware",
+      sector:      v.sector,
+      sectorIsReal: !!v.sector,  // real victim org name
+      severity:    "CRITICAL",
+      source:      `Ransomwatch · ${v.group}`,
+      ts:          v.ts,
+    });
+  });
+
+  // ── CISA KEV (real exploited vulns with sector context) ──
+  cisaVulns.forEach(v => {
+    const city = pick(US_CITIES);
+    const key  = `cisa-${v.cveID}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    threats.push({
+      ip:          null,
+      org:         v.vendor,
+      company:     v.product,
+      city:        city.city,
+      state:       city.state,
+      country:     "United States",
+      lat:         city.lat,
+      lng:         city.lng,
+      attackType:  v.attackType,
+      sector:      v.sector,
+      sectorIsReal: !!v.sector,
+      severity:    "HIGH",
+      source:      `CISA KEV · ${v.cveID}`,
+      ts:          v.ts,
+    });
+  });
+
+  console.log(`Final: ${threats.length} threats`);
+  saveToDisk(threats);
+  return threats;
+}
+
+module.exports = { getThreats };
+
+async function geoResolve(rawList) {
+  if (!rawList.length) return [];
+  const results = [];
+  const IPINFO_TOKEN = process.env.IPINFO_TOKEN || "";
+
+  for (const raw of rawList) {
+    try {
+      const res = await axios.get(
+        `https://ipinfo.io/${raw.ip}/json${IPINFO_TOKEN ? `?token=${IPINFO_TOKEN}` : ""}`,
+        { timeout: 6000 }
+      );
+      const d = res.data;
+      if (d.country !== "US" || !d.loc) continue;
+
+      const [lat, lon] = d.loc.split(",").map(Number);
+
+      results.push({
+        geo: {
+          lat,
+          lon,
+          city:    d.city    || "",
+          org:     d.org     || "",
+          company: d.company?.name || "",
+          asnName: d.asn?.name    || "",
+        },
+        raw,
+      });
+    } catch (err) {
+      console.log(`ipinfo failed for ${raw.ip}:`, err.message);
+    }
+  }
+
+  console.log(`geoResolve: ${results.length} US hits from ${rawList.length} IPs`);
+  return results;
+}
+
+function snapToCity(lat, lng) {
+  return US_CITIES.reduce((best, c) => {
+    const d = Math.hypot(c.lat - lat, c.lng - lng);
+    return d < Math.hypot(best.lat - lat, best.lng - lng) ? c : best;
+  }, US_CITIES[0]);
+}
+
+async function getThreats() {
+  const cache = loadFromDisk();
+  if (cache && Date.now() - cache.savedAt < CACHE_DURATION) return cache.data;
+
+  console.log("Fetching fresh threat data from AbuseIPDB...");
+  const raw = await fetchAbuseIPDB();
+
+  if (!raw.length) {
+    console.log("No IPs returned from AbuseIPDB — check API key");
+    return [];
+  }
+
+  const usResolved = await geoResolve(raw);
+
+  const seen    = new Set();
+  const threats = usResolved
+    .map(({ geo, raw }) => {
+      const city       = snapToCity(geo.lat, geo.lon);
+      const attackType = resolveAttackType(raw.categories);
+      const score      = raw.confidence || 75;
+
+ const realSector   = inferSector(geo.org, geo.company, geo.asnName);
+const sector       = realSector || pick(FALLBACK_SECTORS);
+const sectorIsReal = false; // no reliable victim sector source yet
+
+      return {
+        ip:          raw.ip,
+        org:         geo.org,
+        company:     geo.company,
+        city:        city.city,
+        state:       city.state,
+        country:     "United States",
+        lat:         city.lat,
+        lng:         city.lng,
+        attackType,
+        categories:  raw.categories,
+        sector,
+        sectorIsReal,
+        severity:    score >= 90 ? "CRITICAL" : score >= 80 ? "HIGH" : score >= 70 ? "MEDIUM" : "LOW",
+        source:      raw.source,
+        ts:          new Date().toISOString(),
+      };
+    })
+    .filter(t => {
+      const key = `${t.city}-${t.attackType}`;
+      return seen.has(key) ? false : (seen.add(key), true);
+    });
+
+  console.log(`Final: ${threats.length} threats`);
+  saveToDisk(threats);
+  return threats;
+}
+
+module.exports = { getThreats };
